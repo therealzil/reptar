@@ -9,7 +9,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Install system deps
@@ -20,7 +21,7 @@ jobs:
           python-version: "3.12"
       - name: Run Forensic Generation
         run: |
-          python compute_bfi.py data/calibration/toy_dataset.csv --forensic-log forensic_runs_release.jsonl --bootstrap 500
+          python compute_bfi.py toy_dataset.csv --forensic-log forensic_runs_release.jsonl --bootstrap 500
       - name: Sign Forensic File
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
