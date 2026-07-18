@@ -1,0 +1,38 @@
+name: CI - BFI Pipeline
+
+on:
+  push:
+    branches: [ "**" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    name: PR / Push Tests (fast)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run pytest
+        run: pytest -q
+      - name: Run compute_bfi (fast PR run)
+        run: python compute_bfi.py data/calibration/toy_dataset.csv --forensic-log forensic_runs_pr.jsonl --bootstrap 500
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bfi-pr-artifacts-${{ github.sha }}
+          path: forensic_runs_pr.jsonl
