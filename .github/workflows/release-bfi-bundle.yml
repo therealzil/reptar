@@ -1,0 +1,44 @@
+name: Release BFI Bundle
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y gnupg
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Run Forensic Generation
+        run: |
+          python compute_bfi.py data/calibration/toy_dataset.csv --forensic-log forensic_runs_release.jsonl --bootstrap 500
+      - name: Sign Forensic File
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          FORENSIC_FILENAME: forensic_runs_release.jsonl
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$(mktemp -d)"
+          echo "$GPG_PRIVATE_KEY" | base64 --decode > /tmp/gpg_private.key
+          gpg --batch --import /tmp/gpg_private.key
+          KEY_FPR=$(gpg --with-colons --list-secret-keys | awk -F: '/^sec/ {print $5; exit}')
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --armor --detach-sign --local-user "$KEY_FPR" --output "${FORENSIC_FILENAME}.sig" "${FORENSIC_FILENAME}"
+          sha256sum "${FORENSIC_FILENAME}" > "${FORENSIC_FILENAME}.sha256"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bfi-release-bundle
+          path: |
+            forensic_runs_release.jsonl
+            forensic_runs_release.jsonl.sig
+            forensic_runs_release.jsonl.sha256
